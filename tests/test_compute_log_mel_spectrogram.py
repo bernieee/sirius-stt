@@ -19,5 +19,5 @@ def test_compute_log_mel_spectrogram(audio_file, result_file, gt_len):
         gt_spectrogram = np.load(result_file)
     except Exception as ex:
         pytest.xfail(str(ex))
-    assert np.allclose(spectrogram, gt_spectrogram, atol=1e-6), 'Did you forget about the logarithm?'
-    assert new_len == gt_len, 'Please, check sequence_lengths'
+    assert np.allclose(spectrogram, gt_spectrogram, atol=1e-5), 'Did you forget about the logarithm?'
+    assert torch.all(new_len == gt_len), 'Please, check sequence_lengths'
