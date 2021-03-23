@@ -17,15 +17,11 @@ class AudioDataset(torch.utils.data.Dataset):
     def load_constraint_dataset(path, min_duration, max_duration):
         min_duration = 0.0 if min_duration is None else min_duration
         max_duration = 1e10 if max_duration is None else max_duration
-        print(path)
-        print(min_duration, max_duration)
+
         dataset = pd.read_csv(path, header=None, names=['audio_path', 'text', 'duration'])
         dataset['duration'] = dataset['duration'].astype(float)
-        # print(dataset)
         dataset = dataset[dataset['duration'] > min_duration]
-        # print(dataset)
         dataset = dataset[dataset['duration'] < max_duration]
-        # print(dataset)
         return dataset
 
     def __init__(
@@ -126,12 +122,12 @@ def convert_open_stt_manifest_to_common_voice(manifest_path, min_duration=2.0):
     return cv_manifest_path
 
 
-def manifest_train_test_split(manifest_path, ratio=0.3):
+def manifest_train_test_split(manifest_path, ratio=0.3, seed=42):
     test_manifest_path = manifest_path.replace('.csv', '_test.csv')
     train_manifest_path = manifest_path.replace('.csv', '_train.csv')
 
     data = pd.read_csv(manifest_path)
-    permutation = np.random.permutation(data.shape[0])
+    permutation = np.random.RandomState(seed=seed).permutation(data.shape[0])
     data = data.iloc[permutation]
 
     test_size = int(ratio * data.shape[0])
