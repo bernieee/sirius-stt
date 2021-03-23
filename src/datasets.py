@@ -13,6 +13,14 @@ from src.audio_utils import open_audio
 
 
 class AudioDataset(torch.utils.data.Dataset):
+    @staticmethod
+    def load_constraint_dataset(path, min_duration, max_duration):
+        dataset = pd.read_csv(path, header=None, names=['audio_path', 'text', 'duration'])
+        dataset['duration'] = dataset['duration'].astype(float)
+        dataset = dataset[dataset['duration'] > min_duration]
+        dataset = dataset[dataset['duration'] < max_duration]
+        return dataset
+
     def __init__(
             self, dataset_path, vocab, sample_rate=8000,
             audio_transforms=None, min_duration=None, max_duration=None, evaluate_stats=False
@@ -25,20 +33,23 @@ class AudioDataset(torch.utils.data.Dataset):
         self.max_duration = max_duration
         self.audio_transforms = audio_transforms
 
+        self.min_duration = 0.0 if self.min_duration is None else self.min_duration
+        self.max_duration = 1e10 if self.max_duration is None else self.max_duration
         if isinstance(dataset_path, list):
             data = pd.DataFrame()
-            for path in dataset_path:
-                data = data.append(pd.read_csv(path, header=None, names=['audio_path', 'text', 'duration']))
+            self.min_duration = (
+                [self.min_duration] * len(dataset_path) if isinstance(self.min_duration, float) else self.min_duration
+            )
+            self.min_duration = (
+                [self.max_duration] * len(dataset_path) if isinstance(self.max_duration, float) else self.max_duration
+            )
+            for min_duration, max_duration, path in zip(self.min_duration, self.max_duration, dataset_path):
+                dataset = self.load_constraint_dataset(dataset_path, min_duration, max_duration)
+                data = data.append(dataset)
         else:
-            data = pd.read_csv(dataset_path, header=None, names=['audio_path', 'text', 'duration'])
+            data = self.load_constraint_dataset(dataset_path, min_duration, max_duration)
 
-        data['duration'] = data['duration'].astype(float)
         self.data = data.sort_values(by='duration')
-
-        if self.min_duration is not None:
-            self.data = self.data[self.data['duration'] > self.min_duration]
-        if self.max_duration is not None:
-            self.data = self.data[self.data['duration'] < self.max_duration]
 
         self.idx_to_text_len = dict()
         self.idx_to_audio_len = dict()
