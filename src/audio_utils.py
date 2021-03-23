@@ -100,12 +100,12 @@ def make_transform(name):
 def get_default_audio_transforms():
     return AudioTransformsChain(
     ).add_group(
-        0.5, [
+        0.2, [
             AudioTransformsExclusive(
-            # ).add(
-            #     0.5,
-            #     The frequency response drops logarithmically around the center frequency. band center width
-                # make_transform('band')(1.0, [2, 4, 'log'], [2.5, 4, 'log'])
+            ).add(
+                0.5,
+                # The frequency response drops logarithmically around the center frequency. band center width
+                make_transform('band')(1.0, [2, 3.8, 'log'], [2.5, 3.8, 'log'])
             ).add(
                 0.5,
                 # Non linear distortion.
@@ -113,24 +113,28 @@ def get_default_audio_transforms():
             )
         ]
     ).add_group(
-        0.7, [
+        0.3, [
             AudioTransformsExclusive(
             ).add(
-                0.33,
+                1.0,
                 # Change the audio pitch (but not tempo).
                 make_transform('pitch')(1.0, [-100, 100]),
             ).add(
-                0.33,
+                # Note: I prefer to disable this transformation because audio squeezing may produce NaNs in CTC loss
+                #     and I rather to disable it than introduce bias
+                0.0,
                 # Adjust the audio speed (pitch and tempo together)
                 make_transform('speed')(1.0, [0.9, 1.1]),
             ).add(
-                0.33,
+                # Note: I prefer to disable this transformation because audio squeezing may produce NaNs in CTC loss
+                #     and I rather to disable it than introduce bias
+                0.0,
                 # Change the audio playback speed but not its pitch.
                 make_transform('tempo')(1.0, [0.8, 1.2])
             )
         ]
     ).add_group(
-        1.0, [
+        0.3, [
             AudioTransformsExclusive(
             ).add(
                 0.5,
@@ -143,7 +147,7 @@ def get_default_audio_transforms():
             )
         ]
     ).add_group(
-        0.5, [
+        0.2, [
             AudioTransformsExclusive(
             ).add(
                 0.5,
@@ -156,7 +160,7 @@ def get_default_audio_transforms():
             )
         ]
     ).add_group(
-        0.5, [
+        0.3, [
             # DC shift to the audio
             make_transform('dcshift')(1.0, [-0.2, 0.2]),
 
