@@ -45,7 +45,7 @@ class AudioDataset(torch.utils.data.Dataset):
                 self.max_duration if isinstance(self.max_duration, list) else [self.max_duration] * len(dataset_path)
             )
             for min_duration, max_duration, path in zip(self.min_duration, self.max_duration, dataset_path):
-                dataset = self.load_constraint_dataset(dataset_path, min_duration, max_duration)
+                dataset = self.load_constraint_dataset(path, min_duration, max_duration)
                 data = data.append(dataset)
         else:
             data = self.load_constraint_dataset(dataset_path, self.min_duration, self.max_duration)
