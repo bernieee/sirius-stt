@@ -83,7 +83,10 @@ class _AbstractAudioTransform:
                     magnitude = magnitude if len(option) == 0 else np.power(10, magnitude)
                 else:
                     magnitude = option
-                effect.append('{0:.4f}'.format(magnitude))
+                if isinstance(magnitude, float):
+                    effect.append('{0:.4f}'.format(magnitude))
+                else:
+                    effect.append(str(magnitude))
             return [[self._name] + effect]
 
 
