@@ -86,13 +86,15 @@ def convert_libri_manifest_to_common_voice(manifest_path):
     return cv_manifest_path
 
 
-def convert_open_stt_manifest_to_common_voice(manifest_path):
+def convert_open_stt_manifest_to_common_voice(manifest_path, min_duration=2.0):
     cv_manifest_path = manifest_path.replace('.csv', '.common_voice.csv')
 
     with open(manifest_path, 'r') as in_file:
         with open(cv_manifest_path, 'w') as out_file:
             for line in in_file:
                 audio_filepath, test_filepath, duration = line.strip().split(',')
+                if float(duration) < min_duration:
+                    continue
 
                 audio_filepath = os.path.join(
                     os.path.dirname(os.path.abspath(manifest_path)), './..', audio_filepath

@@ -82,15 +82,14 @@ def training(
 
     logger = TensorboardLogger(model_dir)
 
+    if isinstance(train_dataloader, list):
+        train_dataloader, train_dataloader_name = train_dataloader
+    else:
+        train_dataloader, train_dataloader_name = train_dataloader, 'train'
+
     for epoch in range(num_epochs):
         start_time = time.time()
         train_loss, train_wer = 0, 0
-
-        if isinstance(train_dataloader, list):
-            train_dataloader, train_dataloader_name = train_dataloader
-        else:
-            train_dataloader, train_dataloader_name = train_dataloader, 'train'
-
         model.train(True)
 
         using_spectrogram_transform = spectrogram_transform
