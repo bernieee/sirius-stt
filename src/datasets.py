@@ -17,7 +17,7 @@ class AudioDataset(torch.utils.data.Dataset):
     def load_constraint_dataset(path, min_duration, max_duration):
         min_duration = 0.0 if min_duration is None else min_duration
         max_duration = 1e10 if max_duration is None else max_duration
-        
+
         dataset = pd.read_csv(path, header=None, names=['audio_path', 'text', 'duration'])
         dataset['duration'] = dataset['duration'].astype(float)
         dataset = dataset[dataset['duration'] > min_duration]
@@ -36,21 +36,19 @@ class AudioDataset(torch.utils.data.Dataset):
         self.max_duration = max_duration
         self.audio_transforms = audio_transforms
 
-        self.min_duration = 0.0 if self.min_duration is None else self.min_duration
-        self.max_duration = 1e10 if self.max_duration is None else self.max_duration
         if isinstance(dataset_path, list):
             data = pd.DataFrame()
             self.min_duration = (
-                [self.min_duration] * len(dataset_path) if isinstance(self.min_duration, float) else self.min_duration
+                 self.min_duration if isinstance(self.min_duration, list) else [self.min_duration] * len(dataset_path)
             )
             self.min_duration = (
-                [self.max_duration] * len(dataset_path) if isinstance(self.max_duration, float) else self.max_duration
+                self.max_duration if isinstance(self.max_duration, list) else [self.max_duration] * len(dataset_path)
             )
             for min_duration, max_duration, path in zip(self.min_duration, self.max_duration, dataset_path):
                 dataset = self.load_constraint_dataset(dataset_path, min_duration, max_duration)
                 data = data.append(dataset)
         else:
-            data = self.load_constraint_dataset(dataset_path, min_duration, max_duration)
+            data = self.load_constraint_dataset(dataset_path, self.min_duration, self.max_duration)
 
         self.data = data.sort_values(by='duration')
 
