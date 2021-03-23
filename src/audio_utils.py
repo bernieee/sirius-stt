@@ -83,7 +83,7 @@ class _AbstractAudioTransform:
                     magnitude = magnitude if len(option) == 0 else np.power(10, magnitude)
                 else:
                     magnitude = option
-                effect.append(str(magnitude))
+                effect.append('{0:.4f}'.format(magnitude))
             return [[self._name] + effect]
 
 
@@ -199,7 +199,6 @@ class SpectrogramTransform(torch.nn.Module):
 def compute_log_mel_spectrogram(
         audio, sequence_lengths,
         sample_rate=8000, window_size=0.02, window_step=0.01,
-        #     sample_rate=8000, window_size=0.02, window_step=0.005,
         f_min=20, f_max=3800, n_mels=64, window_fn=torch.hamming_window,
         power=1.0, eps=1e-6, spectrogram_transform=None
 ):
