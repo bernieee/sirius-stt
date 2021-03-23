@@ -15,6 +15,9 @@ from src.audio_utils import open_audio
 class AudioDataset(torch.utils.data.Dataset):
     @staticmethod
     def load_constraint_dataset(path, min_duration, max_duration):
+        min_duration = 0.0 if min_duration is None else min_duration
+        max_duration = 1e10 if max_duration is None else max_duration
+        
         dataset = pd.read_csv(path, header=None, names=['audio_path', 'text', 'duration'])
         dataset['duration'] = dataset['duration'].astype(float)
         dataset = dataset[dataset['duration'] > min_duration]
