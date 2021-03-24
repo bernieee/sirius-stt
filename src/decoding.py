@@ -168,18 +168,16 @@ def fast_beam_search_decode(
         cutoff_top_n=cutoff_top_n, cutoff_prob=cutoff_prob, beam_width=beam_size,
         model_path=ext_scoring_func, alpha=alpha, beta=beta,
         num_processes=num_processes,
-        log_probs_input=False
+        log_probs_input=True
     )
-    probs = torch.exp(logprobs)
-    beam_results, beam_scores, timesteps, out_lens = decoder.decode(torch.transpose(probs, 0, 1), logprobs_lens)
-    beam_probas = torch.exp(-beam_scores)
+    beam_results, beam_scores, timesteps, out_lens = decoder.decode(torch.transpose(logprobs, 0, 1), logprobs_lens)
 
     predictions = []
     for idx in range(beam_results.shape[0]):
         beam = []
         for jdx in range(beam_results.shape[1]):
             hypo = ''.join(vocab.lookup_tokens(beam_results[idx, jdx, :out_lens[idx, jdx]].tolist()))
-            hypo_score = beam_probas[idx, jdx]
+            hypo_score = -beam_scores[idx, jdx]
             beam.append((hypo, hypo_score))
         predictions.append(beam)
 

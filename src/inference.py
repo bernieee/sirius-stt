@@ -23,13 +23,14 @@ class InferenceModel:
     ]
 
     def __init__(
-            self, checkpoint_path='/home/mnakhodnov/sirius-stt/models/6_recovered_v3/epoch_0.pt',
-            device=torch.device('cpu')
+            self, checkpoint_path='/home/mnakhodnov/sirius-stt/models/8_recovered_v3/epoch_3.pt',
+            device=torch.device('cpu'), rescore=False
     ):
         if not os.path.exists(checkpoint_path):
             raise ValueError(f'There is no checkpoint in {checkpoint_path}')
 
         self.device = device
+        self.rescore = rescore
         self.checkpoint_path = checkpoint_path
 
         self._vocab = Vocab(self._alphabet)
@@ -50,12 +51,18 @@ class InferenceModel:
         self.model.eval()
 
         self.decoder = fast_beam_search_decode
-        # self._kenlm_binary_path = '/data/mnakhodnov/language_data/cc100/xaa.processed.4.binary'
-        self._kenlm_binary_path = '/data/mnakhodnov/language_data/common_voice/train.txt.binary'
+        self._kenlm_binary_path = '/data/mnakhodnov/language_data/cc100/xaa.processed.3.binary'
+        # self._kenlm_binary_path = '/data/mnakhodnov/language_data/common_voice/train.txt.binary'
+        # self._kenlm_binary_path = None
         self.decoder_kwargs = {
-            'beam_size': 100, 'cutoff_top_n': 10, 'cutoff_prob': 1.0,
-            'ext_scoring_func': self._kenlm_binary_path, 'alpha': 2.0, 'beta': 0.3, 'num_processes': 32
+            'beam_size': 200, 'cutoff_top_n': 33, 'cutoff_prob': 1.0,
+            'ext_scoring_func': self._kenlm_binary_path, 'alpha': 2.0, 'beta': 1.0, 'num_processes': 32
         }
+
+        if self.rescore:
+            self.rescorer_model = torch.hub.load(
+                'pytorch/fairseq', 'transformer_lm.wmt19.ru', tokenizer='moses', bpe='fastbpe', force_reload=False
+            )
 
     def run(self, audio_path):
         with torch.no_grad():
@@ -83,7 +90,27 @@ class InferenceModel:
             )
             logprobs, seq_lens = self.model(log_mel_spectrogram, seq_lens)
 
-            predictions = get_prediction(
-                logprobs, seq_lens, self._vocab, decoder=self.decoder, decoder_kwargs=self.decoder_kwargs
-            )
-            return predictions[0]
+            hypos = self.decoder(
+                logprobs=logprobs, logprobs_lens=seq_lens, vocab=self._vocab, **self.decoder_kwargs
+            )[0]
+
+            hypos = hypos[:20]
+            voice_scores = torch.tensor([score for _, score in hypos])
+            voice_scores = torch.softmax(voice_scores, dim=0)
+            if self.rescore:
+                lm_scores = []
+                for hypo, score in hypos:
+                    lm_score = self.rescorer_model.score(hypo)['positional_scores'].mean()
+                    lm_scores.append(lm_score)
+            else:
+                lm_scores = [1.0] * len(voice_scores)
+            lm_scores = torch.softmax(torch.tensor(lm_scores), dim=0)
+            hypos = [hypo for hypo, _ in hypos]
+
+            hypos = [
+                (hypo, voice_score.item(), lm_score.item())
+                for hypo, voice_score, lm_score in zip(hypos, voice_scores, lm_scores)
+            ]
+            hypos = list(sorted(hypos, key=lambda key_value: key_value[2], reverse=True))
+
+            return str(hypos[0][0])
