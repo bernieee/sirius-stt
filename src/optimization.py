@@ -1,6 +1,8 @@
 import os
 import time
 import torch
+from typing import Optional
+
 import tqdm.autonotebook as tqdm
 
 from src.logging import TensorboardLogger
@@ -73,10 +75,12 @@ def validate(model, dataloader, vocab, loss_fn, decoder, decoder_kwargs):
     return loss, wer, prediction, batch["texts"]
 
 
+# noinspection PyProtectedMember
 def training(
         model, optimizer, loss_fn, num_epochs,
         train_dataloader, val_dataloaders, log_every_n_batch, model_dir,
-        vocab, beam_kwargs, spectrogram_transform=None, spectrogram_transform_first_epoch=None
+        vocab, beam_kwargs, spectrogram_transform=None, spectrogram_transform_first_epoch=None,
+        scheduler: Optional[torch.optim.lr_scheduler.ExponentialLR] = None
 ):
     device = next(iter(model.parameters())).device
 
@@ -96,6 +100,8 @@ def training(
         if spectrogram_transform is not None:
             if spectrogram_transform_first_epoch is not None and epoch < spectrogram_transform_first_epoch:
                 using_spectrogram_transform = None
+
+        logger.writer.add_scalar(f'lr', optimizer.param_groups[0]['lr'], global_step=epoch)
         for iteration, batch in enumerate(tqdm.tqdm(train_dataloader, total=len(train_dataloader))):
             batch = {
                 key: value.to(device=device) if isinstance(value, torch.Tensor) else value for key, value in
@@ -132,6 +138,10 @@ def training(
                 logger.log_text(step, prediction, batch["texts"], train_dataloader_name)
 
             del batch, loss, wer, prediction
+
+        if scheduler is not None:
+            scheduler.step()
+
         train_loss /= len(train_dataloader.dataset)
         train_wer /= len(train_dataloader.dataset)
 
