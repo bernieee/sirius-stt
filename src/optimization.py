@@ -1,3 +1,4 @@
+import gc
 import os
 import time
 import torch
@@ -5,7 +6,7 @@ from typing import Optional
 
 import tqdm.autonotebook as tqdm
 
-from src.logging import TensorboardLogger
+from src.logging_my import TensorboardLogger
 from src.audio_utils import compute_log_mel_spectrogram
 from src.decoding import greedy_decoder, calc_wer_for_batch, fast_beam_search_decode
 
@@ -61,6 +62,9 @@ def validate(model, dataloader, vocab, loss_fn, decoder, decoder_kwargs):
                 key: value.to(device=device) if isinstance(value, torch.Tensor) else value for key, value in
                 batch.items()
             }
+            # Note: Fix for dataleak
+            batch['texts'] = list(map(lambda text: text.decode('utf-8'), batch['texts']))
+
             loss_batch, wer_batch, prediction = get_model_results(
                 model, batch["audios"], batch["audio_lens"],
                 batch["tokens"], batch["texts"], batch["text_lens"], vocab, loss_fn,
@@ -107,6 +111,8 @@ def training(
                 key: value.to(device=device) if isinstance(value, torch.Tensor) else value for key, value in
                 batch.items()
             }
+            # Note: Fix for dataleak
+            batch['texts'] = list(map(lambda text: text.decode('utf-8'), batch['texts']))
 
             loss, wer, prediction = get_model_results(
                 model, batch["audios"], batch["audio_lens"],
@@ -136,8 +142,15 @@ def training(
             if step % log_every_n_batch == 0:
                 logger.log(step, loss, wer, train_dataloader_name)
                 logger.log_text(step, prediction, batch["texts"], train_dataloader_name)
+                gc.collect()
 
             del batch, loss, wer, prediction
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': train_loss,
+        }, os.path.join(model_dir, f'epoch_{epoch}.pt'))
 
         if scheduler is not None:
             scheduler.step()
@@ -157,13 +170,6 @@ def training(
 
             logger.log(epoch, val_loss, val_wer, f'{name}')
             logger.log_text(epoch, prediction, batch_texts, f'{name}')
-
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': train_loss,
-        }, os.path.join(model_dir, f'epoch_{epoch}.pt'))
 
         common_voice_val_wer, common_voice_val_loss = val_wers['common_voice/val'], val_losses['common_voice/val']
         print(

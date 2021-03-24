@@ -7,7 +7,7 @@ import pandas as pd
 
 import torch
 import torch.utils.data
-from torch.utils.data import DataLoader, BatchSampler, SequentialSampler, RandomSampler
+from torch.utils.data import DataLoader, BatchSampler, SequentialSampler, RandomSampler, Sampler
 
 from src.audio_utils import open_audio
 
@@ -76,12 +76,10 @@ class AudioDataset(torch.utils.data.Dataset):
             effects=self.audio_transforms.sample() if apply_transforms else None
         )
 
-        return {"audio": audio,  # torch tensor, (num_timesteps)
-                "audio_len": audio_len,  # int
-                "text": text,  # str
-                "text_len": text_len,  # int
-                'tokens': tokens,  # torch tensor, (text_len)
-                }
+        # Note: Fix for dataleak
+        return (
+            audio, audio_len, np.array(text.encode('utf-8'), dtype=np.bytes_), text_len, tokens
+        )
 
 
 def convert_libri_manifest_to_common_voice(manifest_path):
@@ -139,44 +137,71 @@ def manifest_train_test_split(manifest_path, ratio=0.3, seed=42):
     return test_manifest_path, train_manifest_path
 
 
-def collate_fn(batch, get_batch_memory_usage=True):
+def collate_fn(batch):
     """
         Inputs:
             batch: list of elements with length=batch_ize
         Returns:
             dict
     """
+    # Note: Fix for dataleak
+    batch = [{
+        "audio": audio,  # torch tensor, (num_timesteps)
+        "audio_len": audio_len,  # int
+        "text": text,  # np.ndarray(dtype=np.bytes_)
+        "text_len": text_len,  # int
+        'tokens': tokens,  # torch tensor, (text_len)
+        } for audio, audio_len, text, text_len, tokens in batch
+    ]
+
     # write your code here
     audios = torch.nn.utils.rnn.pad_sequence(
         [obj['audio'] for obj in batch], batch_first=True, padding_value=0.0
     )
     audio_lens = torch.tensor([obj['audio'].shape[0] for obj in batch])
 
-    texts = [obj['text'] for obj in batch]
-    text_lens = torch.tensor([len(obj['text']) for obj in batch])
+    # Note: Fix for dataleak
+    # texts = [obj['text'] for obj in batch]
+    texts = np.array([obj['text'] for obj in batch]).astype(np.bytes_)
+
+    # Note: Fix for dataleak
+    # text_lens = torch.tensor([len(obj['text']) for obj in batch])
+    text_lens = torch.tensor([obj['text_len'] for obj in batch])
     tokens = torch.nn.utils.rnn.pad_sequence(
         [obj['tokens'] for obj in batch], batch_first=True, padding_value=0.0
     )
-    batch = {
-        'audios': audios,  # torch tensor, (batch_size, max_num_timesteps)
-        'audio_lens': audio_lens,  # torch tensor, (batch_size)
-        'texts': texts,  # list, len=(batch_size)
-        'text_lens': text_lens,  # torch tensor, (batch_size)
-        'tokens': tokens,  # torch tensor, (batch_size, max_text_len)
-    }
 
-    if get_batch_memory_usage:
-        batch_memory_usage = 0.0
-        for key, value in batch.items():
-            if isinstance(value, torch.Tensor):
-                batch_memory_usage += value.numel()
-        batch['memory_usage'] = batch_memory_usage
-
-    return batch
+    # Note: Fix for dataleak
+    return audios, audio_lens, texts, text_lens, tokens
 
 
-class AudioDatasetSampler:
+class AudioDataloaderWrapper:
+    def __init__(self, dataloader):
+        self._iterator = None
+        self.dataloader = dataloader
+        self.dataset = self.dataloader.dataset
+
+    def __iter__(self):
+        self._iterator = iter(self.dataloader)
+        return self
+
+    def __next__(self):
+        audios, audio_lens, texts, text_lens, tokens, *_ = next(self._iterator)
+        return {
+            'audios': audios,
+            'audio_lens': audio_lens,
+            'texts': texts,
+            'text_lens': text_lens,
+            'tokens': tokens,
+        }
+
+    def __len__(self):
+        return len(self.dataloader)
+
+
+class AudioDatasetSampler(Sampler):
     def __init__(self, dataset, batch_size):
+        super().__init__(None)
         self.epoch = 0
         self.dataset = dataset
         self.batch_size = batch_size
