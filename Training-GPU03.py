@@ -133,7 +133,7 @@ open_stt_test_dataloader = AudioDataloaderWrapper(DataLoader(
 combined_dataloader = AudioDataloaderWrapper(DataLoader(
     combined_dataset, batch_size=batch_size, 
     sampler=AudioDatasetSampler(combined_dataset, batch_size=batch_size),
-    num_workers=train_num_workers, pin_memory=True, collate_fn=collate_fn
+    num_workers=train_num_workers, pin_memory=False, collate_fn=collate_fn
 ))
 
 # # Create Model
@@ -163,7 +163,7 @@ num_mel_bins = 64
 hidden_size = 512
 num_layers = 4
 
-model_dir = 'models/8_recovered_v2'
+model_dir = 'models/8_recovered_v3'
 log_every_n_batch = 10
 
 model = Model(
@@ -172,7 +172,7 @@ model = Model(
     num_layers=num_layers,
     num_tokens=num_tokens
 )
-load_from_ckpt(model, '/home/mnakhodnov/sirius-stt/models/8_recovered/epoch_0.pt')
+load_from_ckpt(model, '/home/mnakhodnov/sirius-stt/models/8_recovered_v2/epoch_1.pt')
 model = model.to(device=device)
 
 from torch.optim.lr_scheduler import ExponentialLR
