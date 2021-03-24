@@ -114,6 +114,8 @@ def training(
             # Note: Fix for dataleak
             batch['texts'] = list(map(lambda text: text.decode('utf-8'), batch['texts']))
 
+            optimizer.zero_grad()
+
             loss, wer, prediction = get_model_results(
                 model, batch["audios"], batch["audio_lens"],
                 batch["tokens"], batch["texts"], batch["text_lens"], vocab, loss_fn,
@@ -122,7 +124,6 @@ def training(
 
             # optimizer step
             # write your code here
-            optimizer.zero_grad()
             loss.backward()
 
             gradient_norm = torch.sqrt(sum((torch.square(torch.norm(p.grad)) for p in model.parameters()))).item()
