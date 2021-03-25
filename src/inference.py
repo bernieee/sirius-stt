@@ -4,7 +4,6 @@ import torch
 
 from src.deepspeech import Model
 from src.datasets import collate_fn
-from src.optimization import get_prediction
 from src.decoding import fast_beam_search_decode
 from vocabulary import Vocab, get_blank_index, get_num_tokens
 from src.audio_utils import open_audio, compute_log_mel_spectrogram
@@ -23,7 +22,7 @@ class InferenceModel:
     ]
 
     def __init__(
-            self, checkpoint_path='/home/mnakhodnov/sirius-stt/models/8_recovered_v3/epoch_15.pt',
+            self, checkpoint_path='/home/mnakhodnov/sirius-stt/models/8_recovered_v3/epoch_17.pt',
             device=torch.device('cpu'), rescore=True, decoder_kwargs=None
     ):
         if not os.path.exists(checkpoint_path):
@@ -53,8 +52,6 @@ class InferenceModel:
 
         self.decoder = fast_beam_search_decode
         self._kenlm_binary_path = '/data/mnakhodnov/language_data/cc100/xaa.processed.3.binary'
-        # self._kenlm_binary_path = '/data/mnakhodnov/language_data/common_voice/train.txt.binary'
-        # self._kenlm_binary_path = None
         if self.decoder_kwargs is None:
             self.decoder_kwargs = {
                 'beam_size': 200, 'cutoff_top_n': 33, 'cutoff_prob': 1.0,
