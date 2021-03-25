@@ -10,7 +10,7 @@ from vocabulary import Vocab, get_blank_index, get_num_tokens
 from src.audio_utils import open_audio, compute_log_mel_spectrogram
 
 
-def load_from_ckpt(_model, ckpt_path):
+def load_from_ckpt(_model, ckpt_path, decoder_kwargs=None):
     checkpoint = torch.load(ckpt_path, map_location='cpu')
     _model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -24,13 +24,14 @@ class InferenceModel:
 
     def __init__(
             self, checkpoint_path='/home/mnakhodnov/sirius-stt/models/8_recovered_v3/epoch_3.pt',
-            device=torch.device('cpu'), rescore=False
+            device=torch.device('cpu'), rescore=False, decoder_kwargs=None
     ):
         if not os.path.exists(checkpoint_path):
             raise ValueError(f'There is no checkpoint in {checkpoint_path}')
 
         self.device = device
         self.rescore = rescore
+        self.decoder_kwargs = decoder_kwargs
         self.checkpoint_path = checkpoint_path
 
         self._vocab = Vocab(self._alphabet)
@@ -48,21 +49,22 @@ class InferenceModel:
 
         self.model = Model(**self._model_config)
         load_from_ckpt(self.model, self.checkpoint_path)
-        self.model.eval()
+        self.model = self.model.to(device=self.device).eval()
 
         self.decoder = fast_beam_search_decode
         self._kenlm_binary_path = '/data/mnakhodnov/language_data/cc100/xaa.processed.3.binary'
         # self._kenlm_binary_path = '/data/mnakhodnov/language_data/common_voice/train.txt.binary'
         # self._kenlm_binary_path = None
-        self.decoder_kwargs = {
-            'beam_size': 200, 'cutoff_top_n': 33, 'cutoff_prob': 1.0,
-            'ext_scoring_func': self._kenlm_binary_path, 'alpha': 2.0, 'beta': 1.0, 'num_processes': 32
-        }
+        if self.decoder_kwargs is None:
+            self.decoder_kwargs = {
+                'beam_size': 200, 'cutoff_top_n': 33, 'cutoff_prob': 1.0,
+                'ext_scoring_func': self._kenlm_binary_path, 'alpha': 2.0, 'beta': 1.0, 'num_processes': 32
+            }
 
         if self.rescore:
             self.rescorer_model = torch.hub.load(
                 'pytorch/fairseq', 'transformer_lm.wmt19.ru', tokenizer='moses', bpe='fastbpe', force_reload=False
-            )
+            ).to(device=device)
 
     def run(self, audio_path):
         with torch.no_grad():
