@@ -29,6 +29,12 @@ results = model.run(audio_path='/path/to/you/audio/file')
 # >> "Ваш отлично распознанный голос"
 ```
 
+Для запуска проекта необходимо установить зависимости:
+```shell
+sh setup.sh
+pip install -r requirements.txt
+```
+
 На основе данного репозитория реализован telegram бот https://github.com/Polly42Rose/sirius-stt-bot.
 
 <a id="1">[1]</a> Deep Speech 2: End-to-End Speech Recognition in English and Mandarin. https://arxiv.org/pdf/1512.02595.pdf
