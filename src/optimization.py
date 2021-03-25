@@ -84,7 +84,8 @@ def training(
         model, optimizer, loss_fn, num_epochs,
         train_dataloader, val_dataloaders, log_every_n_batch, model_dir,
         vocab, beam_kwargs, spectrogram_transform=None, spectrogram_transform_first_epoch=None,
-        scheduler: Optional[torch.optim.lr_scheduler.ExponentialLR] = None
+        scheduler: Optional[torch.optim.lr_scheduler.ExponentialLR] = None,
+        grad_scaler: Optional[torch.cuda.amp.GradScaler] = None
 ):
     device = next(iter(model.parameters())).device
 
@@ -116,22 +117,31 @@ def training(
 
             optimizer.zero_grad()
 
-            loss, wer, prediction = get_model_results(
-                model, batch["audios"], batch["audio_lens"],
-                batch["tokens"], batch["texts"], batch["text_lens"], vocab, loss_fn,
-                decoder=greedy_decoder, decoder_kwargs=dict(), spectrogram_transform=using_spectrogram_transform
-            )
+            if grad_scaler is not None:
+                with torch.cuda.amp.autocast():
+                    loss, wer, prediction = get_model_results(
+                        model, batch["audios"], batch["audio_lens"],
+                        batch["tokens"], batch["texts"], batch["text_lens"], vocab, loss_fn,
+                        decoder=greedy_decoder, decoder_kwargs=dict(), spectrogram_transform=using_spectrogram_transform
+                    )
+                grad_scaler.scale(loss).backward()
+                grad_scaler.step(optimizer)
+                grad_scaler.update()
+            else:
+                loss, wer, prediction = get_model_results(
+                    model, batch["audios"], batch["audio_lens"],
+                    batch["tokens"], batch["texts"], batch["text_lens"], vocab, loss_fn,
+                    decoder=greedy_decoder, decoder_kwargs=dict(), spectrogram_transform=using_spectrogram_transform
+                )
 
-            # optimizer step
-            # write your code here
-            loss.backward()
+                # optimizer step
+                # write your code here
+                loss.backward()
+                optimizer.step()
 
             gradient_norm = torch.sqrt(sum((torch.square(torch.norm(p.grad)) for p in model.parameters()))).item()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1000.0, norm_type=2.0)
             gradient_norm_clipped = torch.sqrt(
                 sum((torch.square(torch.norm(p.grad)) for p in model.parameters()))).item()
-
-            optimizer.step()
 
             train_loss += loss.item() * batch['audio_lens'].shape[0]
             train_wer += wer * batch['audio_lens'].shape[0]
@@ -171,7 +181,9 @@ def training(
 
             logger.log(epoch, val_loss, val_wer, f'{name}')
             logger.log_text(epoch, prediction, batch_texts, f'{name}')
-
+            print(
+                f'\nEpoch {epoch + 1} of {num_epochs}. Dataset: {name}, loss: {val_loss}, wer: {val_wer}'
+            )
         common_voice_val_wer, common_voice_val_loss = val_wers['common_voice/val'], val_losses['common_voice/val']
         print(
             f'\nEpoch {epoch + 1} of {num_epochs} took {time.time() - start_time}s, '
