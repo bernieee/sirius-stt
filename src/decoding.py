@@ -158,7 +158,7 @@ def beam_search_decode(logprobs, logprobs_lens, vocab, beam_size, cutoff_top_n, 
 def fast_beam_search_decode(
         logprobs, logprobs_lens, vocab, beam_size,
         cutoff_top_n, cutoff_prob, ext_scoring_func, alpha, beta,
-        num_processes
+        num_processes, rescorer=None
 ):
     blank_index = vocab['<blank>']
 
@@ -180,5 +180,13 @@ def fast_beam_search_decode(
             hypo_score = -beam_scores[idx, jdx]
             beam.append((hypo, hypo_score))
         predictions.append(beam)
+
+    if rescorer is not None:
+        lm_scores = []
+        for hypo, score in predictions:
+            lm_score = rescorer.score(hypo)['positional_scores'].mean()
+            lm_scores.append(lm_score)
+        lm_scores = torch.softmax(torch.tensor(lm_scores), dim=0)
+        predictions = [(hypo, lm_score) for (hypo, _), lm_score in zip(predictions, lm_scores)]
 
     return predictions
