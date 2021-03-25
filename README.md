@@ -1,6 +1,6 @@
 # DeepSpeech2
 
-В данном репозитории содержится реализация модели DeepSpeech2 с использованием фреймворка pytorch.
+В данном репозитории содержится реализация модели [DeepSpeech2](1) с использованием фреймворка pytorch.
 
 Репозиторий организован следующим образом:
 * ``src`` -- модули с реализацией компонент модели
@@ -28,3 +28,7 @@ results = model.run(audio_path='/path/to/you/audio/file')
 # print(results)
 # >> "Ваш отлично распознанный голос"
 ```
+
+На основе данного репозитория реализован telegram бот https://github.com/Polly42Rose/sirius-stt-bot.
+
+[1]: Deep Speech 2: End-to-End Speech Recognition in English and Mandarin. https://arxiv.org/pdf/1512.02595.pdf
