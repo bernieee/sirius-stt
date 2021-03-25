@@ -23,8 +23,8 @@ class InferenceModel:
     ]
 
     def __init__(
-            self, checkpoint_path='/home/mnakhodnov/sirius-stt/models/8_recovered_v3/epoch_3.pt',
-            device=torch.device('cpu'), rescore=False, decoder_kwargs=None
+            self, checkpoint_path='/home/mnakhodnov/sirius-stt/models/8_recovered_v3/epoch_15.pt',
+            device=torch.device('cpu'), rescore=True, decoder_kwargs=None
     ):
         if not os.path.exists(checkpoint_path):
             raise ValueError(f'There is no checkpoint in {checkpoint_path}')
@@ -58,7 +58,7 @@ class InferenceModel:
         if self.decoder_kwargs is None:
             self.decoder_kwargs = {
                 'beam_size': 200, 'cutoff_top_n': 33, 'cutoff_prob': 1.0,
-                'ext_scoring_func': self._kenlm_binary_path, 'alpha': 2.0, 'beta': 1.0, 'num_processes': 32
+                'ext_scoring_func': self._kenlm_binary_path, 'alpha': 1.0, 'beta': 0.3, 'num_processes': 32
             }
 
         if self.rescore:
