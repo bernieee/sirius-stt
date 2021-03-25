@@ -182,11 +182,15 @@ def fast_beam_search_decode(
         predictions.append(beam)
 
     if rescorer is not None:
-        lm_scores = []
-        for hypo, score in predictions:
-            lm_score = rescorer.score(hypo)['positional_scores'].mean()
-            lm_scores.append(lm_score)
-        lm_scores = torch.softmax(torch.tensor(lm_scores), dim=0)
-        predictions = [(hypo, lm_score) for (hypo, _), lm_score in zip(predictions, lm_scores)]
+        all_hypos = [hypo for beam in predictions for hypo, _ in beam]
+        scoring_results = rescorer.score(all_hypos)
+        all_lm_scores = [scoring_result['positional_scores'].mean().item() for scoring_result in scoring_results]
+        all_lm_scores = torch.tensor(all_lm_scores).reshape(beam_scores.shape)
+        all_lm_scores = torch.softmax(all_lm_scores, dim=1)
+        predictions = [
+            [(predictions[idx][jdx][0], all_lm_scores[idx, jdx])
+             for jdx in range(beam_results.shape[1])]
+            for idx in range(beam_results.shape[0])
+        ]
 
     return predictions
