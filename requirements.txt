@@ -1,0 +1,11 @@
+tqdm
+numpy
+regex
+torch
+pandas
+fairseq
+fastBPE
+attrdict
+torchaudio
+sacremoses
+editdistance
